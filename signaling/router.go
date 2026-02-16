@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-func (s *Server) route(message []byte) {
+func (s *WebRTCServer) route(message []byte) {
 	var env WebsocketResponse
 	if err := json.Unmarshal(message, &env); err != nil {
 		log.Println("invalid packet:", err)

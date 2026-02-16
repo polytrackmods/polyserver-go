@@ -1,4 +1,4 @@
-package game
+package gametrack
 
 import (
 	"bytes"
@@ -58,8 +58,9 @@ func (e Environment) String() string {
 
 // Track holds the metadata and the decoded track data.
 type Track struct {
-	Metadata TrackMetadata
-	Data     *TrackInfo
+	Metadata    TrackMetadata
+	Data        *TrackInfo
+	EncodedData []byte
 }
 
 type TrackMetadata struct {
@@ -101,6 +102,7 @@ type Block struct {
 // DecodePolyTrack2 decodes a PolyTrack2-encoded string.
 func DecodePolyTrack2(prefixedInput string) (*Track, error) {
 	const prefix = "PolyTrack2"
+	var track *Track = &Track{}
 	if !strings.HasPrefix(prefixedInput, prefix) {
 		return nil, errors.New("invalid prefix")
 	}
@@ -115,6 +117,7 @@ func DecodePolyTrack2(prefixedInput string) (*Track, error) {
 		return nil, fmt.Errorf("first base62 decode failed: %w", err)
 	}
 	fmt.Printf("First decoded length: %d bytes\n", len(firstDecoded))
+	track.EncodedData = firstDecoded
 
 	// First inflate - this should produce a STRING (the JS code uses to: "string")
 	firstInflated, err := ZlibDecompressToString(firstDecoded)
@@ -137,8 +140,11 @@ func DecodePolyTrack2(prefixedInput string) (*Track, error) {
 	}
 	fmt.Printf("Second inflated length: %d bytes\n", len(secondInflated))
 
-	// Now parse the final byte array
-	return parseTrackData(secondInflated)
+	track2, err := parseTrackData(secondInflated)
+
+	track.Data = track2.Data
+	track.Metadata = track2.Metadata
+	return track, err
 }
 
 func parseTrackData(buf []byte) (*Track, error) {
@@ -219,7 +225,6 @@ func parseTrackData(buf []byte) (*Track, error) {
 // EncodeTrack converts a TrackInfo to the binary format
 func (trackInfo *TrackInfo) EncodeTrackInfo() ([]byte, error) {
 	var buf bytes.Buffer
-
 	// Write environment and sun direction
 	// Using (0, d.gn)(this, a, "f") and (0, d.gn)(this, s, "f").representation
 	// Assuming these are just the raw values
@@ -285,10 +290,6 @@ func (trackInfo *TrackInfo) EncodeTrackInfo() ([]byte, error) {
 
 	// Write parts
 	for _, part := range trackInfo.Parts {
-		// Part ID
-		if part.ID > 255 {
-			return nil, fmt.Errorf("part ID out of range: %d", part.ID)
-		}
 		buf.WriteByte(part.ID)
 
 		// Amount of blocks (little-endian uint32)

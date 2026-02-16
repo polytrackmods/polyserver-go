@@ -7,21 +7,24 @@ import (
 	"log"
 	"net/http"
 	"polyserver/config"
-	"polyserver/webrtc"
+	webrtc_session "polyserver/webrtc"
 	"strconv"
 
 	"github.com/gorilla/websocket"
 )
 
-type Server struct {
+type WebRTCServer struct {
 	Conn          *websocket.Conn
 	ICEUrls       []string
 	CurrentInvite string
-	Sessions      map[string]*webrtc.PeerSession
+	Sessions      map[string]*webrtc_session.PeerSession
 	ClientCount   int
+
+	OnOpen  func(joinPacket JoinInvite, session *webrtc_session.PeerSession)
+	OnClose func(sessionId string)
 }
 
-func NewServer() *Server {
+func NewServer() *WebRTCServer {
 
 	resp, err := http.Get(config.IceFetchUrl)
 	if err != nil {
@@ -43,14 +46,14 @@ func NewServer() *Server {
 		numOfUrls++
 	}
 	log.Println("Got " + strconv.Itoa(numOfUrls) + " ICE URLs")
-	return &Server{
-		Sessions:    make(map[string]*webrtc.PeerSession),
+	return &WebRTCServer{
+		Sessions:    make(map[string]*webrtc_session.PeerSession),
 		ClientCount: 1,
 		ICEUrls:     IceUrls,
 	}
 }
 
-func (s *Server) Connect() error {
+func (s *WebRTCServer) Connect() error {
 	if s.Conn != nil {
 		s.Conn.Close()
 	}
@@ -64,7 +67,7 @@ func (s *Server) Connect() error {
 	return nil
 }
 
-func (s *Server) RegenerateInvite() error {
+func (s *WebRTCServer) RegenerateInvite() error {
 	if err := s.Connect(); err != nil {
 		return err
 	}
@@ -74,7 +77,7 @@ func (s *Server) RegenerateInvite() error {
 	return s.CreateInvite()
 }
 
-func (s *Server) CreateInvite() error {
+func (s *WebRTCServer) CreateInvite() error {
 	if s.Conn == nil {
 		return fmt.Errorf("not connected")
 	}
@@ -89,7 +92,7 @@ func (s *Server) CreateInvite() error {
 	return s.Conn.WriteMessage(websocket.TextMessage, data)
 }
 
-func (s *Server) Start() {
+func (s *WebRTCServer) Start() {
 	for {
 		_, message, err := s.Conn.ReadMessage()
 		if err != nil {
@@ -102,19 +105,30 @@ func (s *Server) Start() {
 	}
 }
 
-func (s *Server) handleCreateInvite(p CreateInviteResponse) {
+func (s *WebRTCServer) handleCreateInvite(p CreateInviteResponse) {
 	s.CurrentInvite = p.InviteCode
 	log.Println("Invite code:", p.InviteCode)
 }
 
-func (s *Server) handleJoinInvite(p JoinInvite) {
+func (s *WebRTCServer) onConnectionClosed(sessionId string) {
+	for k := range s.Sessions {
+		if k == sessionId {
+			log.Printf("Removing %v from Sessions...\n", sessionId)
+			s.OnClose(sessionId)
+			delete(s.Sessions, k)
+		}
+	}
+}
+
+func (s *WebRTCServer) handleJoinInvite(p JoinInvite) {
 	log.Println("User is joining:", p.Nickname)
 
-	session, answer, err := webrtc.NewPeerSession(
+	session, answer, err := webrtc_session.NewPeerSession(
 		p.Session,
 		p.Offer,
 		s.OnIceCandidateServer,
 		s.ICEUrls,
+		s.onConnectionClosed,
 	)
 	if err != nil {
 		log.Println("failed to create session:", err)
@@ -122,6 +136,11 @@ func (s *Server) handleJoinInvite(p JoinInvite) {
 	}
 
 	s.Sessions[p.Session] = session
+
+	session.ReliableDC.OnOpen(func() {
+		s.OnOpen(p, session)
+	})
+
 	log.Println("Created session:", p.Session)
 	s.ClientCount++
 	joinPacket, _ := json.Marshal(AcceptJoinPacket{
@@ -138,8 +157,7 @@ func (s *Server) handleJoinInvite(p JoinInvite) {
 	s.send([]byte(joinPacket))
 }
 
-func (s *Server) handleICE(p IceCandidateResponse) {
-	log.Println("Received ICE candidate.")
+func (s *WebRTCServer) handleICE(p IceCandidateResponse) {
 	session, ok := s.Sessions[p.Session]
 	if !ok {
 		log.Println("unknown session:", p.Session)
@@ -152,7 +170,7 @@ func (s *Server) handleICE(p IceCandidateResponse) {
 	}
 }
 
-func (s *Server) OnIceCandidateServer(candidate []byte, session string) error {
+func (s *WebRTCServer) OnIceCandidateServer(candidate []byte, session string) error {
 	var iceCandidate IceCandidate
 	err := json.Unmarshal(candidate, &iceCandidate)
 	if err != nil {
@@ -167,10 +185,9 @@ func (s *Server) OnIceCandidateServer(candidate []byte, session string) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Forwarding ICE candidate...")
 	return s.send(icePacket)
 }
 
-func (s *Server) send(data []byte) error {
+func (s *WebRTCServer) send(data []byte) error {
 	return s.Conn.WriteMessage(1, data)
 }

@@ -1,4 +1,4 @@
-package webrtc
+package webrtc_session
 
 import (
 	"encoding/json"
@@ -11,6 +11,8 @@ type PeerSession struct {
 	SessionID    string
 	Peer         *webrtc.PeerConnection
 	OnIceCanFunc func(iceCandidate []byte, session string) error
+	ReliableDC   *webrtc.DataChannel
+	UnreliableDC *webrtc.DataChannel
 }
 
 func NewPeerSession(
@@ -18,6 +20,7 @@ func NewPeerSession(
 	offerSDP string,
 	onIceCanFunc func(candidate []byte, session string) error,
 	IceUrls []string,
+	onClose func(string),
 ) (*PeerSession, string, error) {
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
@@ -49,6 +52,7 @@ func NewPeerSession(
 
 			println("Cleaning up session:", ps.SessionID)
 			ps.Peer.Close()
+			onClose(ps.SessionID)
 		}
 	})
 
@@ -118,10 +122,6 @@ func (ps *PeerSession) createDataChannels() error {
 		return err
 	}
 
-	reliable.OnOpen(func() {
-		log.Println("Reliable channel open")
-	})
-
 	reliable.OnMessage(func(msg webrtc.DataChannelMessage) {
 		log.Println("Reliable message:", len(msg.Data))
 	})
@@ -145,13 +145,12 @@ func (ps *PeerSession) createDataChannels() error {
 		return err
 	}
 
-	unreliable.OnOpen(func() {
-		log.Println("Unreliable channel open")
-	})
-
 	unreliable.OnMessage(func(msg webrtc.DataChannelMessage) {
 		log.Println("Unreliable message:", len(msg.Data))
 	})
+
+	ps.ReliableDC = reliable
+	ps.UnreliableDC = unreliable
 
 	return nil
 }

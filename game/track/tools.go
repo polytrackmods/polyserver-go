@@ -1,4 +1,4 @@
-package game
+package gametrack
 
 import (
 	"bytes"
