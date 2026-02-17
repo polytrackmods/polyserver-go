@@ -20,7 +20,7 @@ type JoinInvite struct {
 	Nickname                string   `json:"nickname"`
 	Mods                    []string `json:"mods"`
 	IsModsVanillaCompatible bool     `json:"isModsVanillaCompatible"`
-	CountryCode             string   `json:"countryCode"`
+	CountryCode             *string  `json:"countryCode"`
 	CarStyle                string   `json:"carStyle"`
 }
 
@@ -30,12 +30,12 @@ type AcceptJoinPacket struct {
 	Session                 string   `json:"session"`
 	IsModsVanillaCompatible bool     `json:"isModsVanillaCompatible"`
 	Mods                    []string `json:"mods"`
-	CliendId                int      `json:"clientId"`
+	CliendId                uint32   `json:"clientId"`
 	Answer                  string   `json:"answer"`
 }
 
 type IceServerResponse struct {
-	Urls string
+	Urls string `json:"urls"`
 }
 
 type IceCandidate struct {

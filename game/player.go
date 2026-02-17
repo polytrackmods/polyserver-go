@@ -2,36 +2,72 @@ package game
 
 import (
 	"fmt"
+	"log"
 	gamepackets "polyserver/game/packets"
-	gametrack "polyserver/game/track"
 	webrtc_session "polyserver/webrtc"
+	"sync"
 	"time"
+
+	"github.com/pion/webrtc/v4"
 )
 
 type Player struct {
 	Session                 *webrtc_session.PeerSession
+	Server                  *GameServer
 	IsKicked                bool
-	ID                      int
+	ID                      uint32
 	Mods                    []string
 	IsModsVanillaCompatible bool
 	Nickname                string
-	CountryCode             string
+	CountryCode             *string
 	ResetCounter            int
-	CarStyle                string
-	Record                  *Record
+	CarStyle                *gamepackets.CarStyle
+	NumberOfFrames          *uint32
 	Ping                    int
-	PingIdCounter           int
+	PingIdCounter           uint8
 	PingPackages            []PingPackage
-	UnsentCarStates         []any // TODO: CAR STATE STUFF
-}
-
-type Record struct {
-	numberOfFrames int
+	PPLock                  sync.Mutex
+	UnsentCarStates         []gamepackets.CarState
 }
 
 type PingPackage struct {
-	pingId   int
-	sentTime time.Time
+	PingId   int
+	SentTime time.Time
+}
+
+func NewPlayer(p *Player) *Player {
+	p.Session.ReliableDC.OnMessage(func(msg webrtc.DataChannelMessage) {
+		p.HandleMessage(msg.Data)
+	})
+	p.Session.UnreliableDC.OnMessage(func(msg webrtc.DataChannelMessage) {
+		p.HandleMessage(msg.Data)
+	})
+	return p
+}
+
+func (player *Player) HandleMessage(data []byte) {
+	packet, err := player.Server.Factory.FromBytes(data)
+	if err != nil {
+		log.Println("Error from packet: " + err.Error())
+		return
+	}
+	switch packet.Type() {
+	case gamepackets.Pong:
+		pongPacket, _ := packet.(gamepackets.PongPacket)
+		// log.Printf("Received pong: %v", +pongPacket.PingId)
+		player.PPLock.Lock()
+		defer player.PPLock.Unlock()
+		for index, pingPacket := range player.PingPackages {
+			if pingPacket.PingId == int(pongPacket.PingId) {
+				player.Ping = int(time.Now().UnixMilli() - pingPacket.SentTime.UnixMilli())
+				player.PingPackages = append(player.PingPackages[:index], player.PingPackages[index+1:]...)
+				break
+			}
+		}
+	case gamepackets.HostCarUpdate:
+		updatePacket, _ := packet.(gamepackets.HostCarUpdatePacket)
+		log.Printf("Update packet received from %v: %v\n", updatePacket.SessionID, updatePacket)
+	}
 }
 
 func (player *Player) Send(packet gamepackets.PlayerPacket) error {
@@ -40,18 +76,21 @@ func (player *Player) Send(packet gamepackets.PlayerPacket) error {
 		return fmt.Errorf("failed to marshal %s packet: %w", packet.Type(), err)
 	}
 
-	// Special handling for TrackChunk packets might be needed
-	if packet.Type() == gamepackets.TrackChunk {
-		return player.Session.ReliableDC.Send(data)
-	}
-
-	// For other packets, just send directly
 	return player.Session.ReliableDC.Send(data)
 }
 
-func (player *Player) SendTrack(track gametrack.Track) error {
+func (player *Player) SendUnreliable(packet gamepackets.PlayerPacket) error {
+	data, err := packet.Marshal()
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s packet: %w", packet.Type(), err)
+	}
+
+	return player.Session.UnreliableDC.Send(data)
+}
+
+func (player *Player) SendTrack() error {
 	// Send track ID
-	trackId, err := track.GetTrackID()
+	trackId, err := player.Server.GameSession.CurrentTrack.GetTrackID()
 	if err != nil {
 		return fmt.Errorf("failed to get track ID: %w", err)
 	}
@@ -62,7 +101,7 @@ func (player *Player) SendTrack(track gametrack.Track) error {
 
 	// Get the exported track string (base62 encoded)
 	// This should be the same as n.toExportString(t) in JS
-	trackString := track.ExportString
+	trackString := player.Server.GameSession.CurrentTrack.ExportString
 
 	// Send track data in chunks of 16383 bytes
 	for offset := 0; offset < len(trackString); offset += 16383 {
@@ -84,17 +123,44 @@ func (player *Player) SendTrack(track gametrack.Track) error {
 		if err := player.Session.ReliableDC.Send(packet); err != nil {
 			return fmt.Errorf("failed to send chunk at offset %d: %w", offset, err)
 		}
-
-		// Optional: Add a small delay between chunks if needed
-		// time.Sleep(10 * time.Millisecond)
 	}
 
 	return nil
 }
 
-func (player *Player) StartNewSession(session GameSession) {
+func (player *Player) StartNewSession() {
 	player.Send(gamepackets.NewSessionPacket{
-		SessionID: session.SessionID,
-		GameMode:  uint8(session.GameMode),
+		SessionID:  player.Server.GameSession.SessionID,
+		GameMode:   uint8(player.Server.GameSession.GameMode),
+		MaxPlayers: uint8(player.Server.GameSession.MaxPlayers),
 	})
+}
+
+func (player *Player) SendPing() {
+	player.PingIdCounter++
+	player.SendUnreliable(gamepackets.PingPacket{
+		PingId: player.PingIdCounter,
+	})
+	player.PPLock.Lock()
+	defer player.PPLock.Unlock()
+	player.PingPackages = append(player.PingPackages, PingPackage{
+		PingId:   int(player.PingIdCounter),
+		SentTime: time.Now(),
+	})
+	if len(player.PingPackages) > 10 {
+		player.PingPackages = append(player.PingPackages[:0], player.PingPackages[1:]...)
+	}
+}
+
+func (player *Player) SendPlayerUpdate(p *Player) {
+	err := player.Send(gamepackets.PlayerUpdatePacket{
+		ID:          p.ID,
+		Nickname:    p.Nickname,
+		CountryCode: p.CountryCode,
+		CarStyle:    p.CarStyle,
+		NumFrames:   p.NumberOfFrames,
+	})
+	if err != nil {
+		log.Println("Error sending player update: " + err.Error())
+	}
 }

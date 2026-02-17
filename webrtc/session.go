@@ -122,10 +122,6 @@ func (ps *PeerSession) createDataChannels() error {
 		return err
 	}
 
-	reliable.OnMessage(func(msg webrtc.DataChannelMessage) {
-		log.Println("Reliable message:", len(msg.Data))
-	})
-
 	// Unreliable
 	unordered := false
 	maxRetrans := uint16(0)
@@ -144,10 +140,6 @@ func (ps *PeerSession) createDataChannels() error {
 	if err != nil {
 		return err
 	}
-
-	unreliable.OnMessage(func(msg webrtc.DataChannelMessage) {
-		log.Println("Unreliable message:", len(msg.Data))
-	})
 
 	ps.ReliableDC = reliable
 	ps.UnreliableDC = unreliable

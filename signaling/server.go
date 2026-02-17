@@ -9,16 +9,19 @@ import (
 	"polyserver/config"
 	webrtc_session "polyserver/webrtc"
 	"strconv"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
 type WebRTCServer struct {
 	Conn          *websocket.Conn
+	ConnLock      sync.Mutex
 	ICEUrls       []string
 	CurrentInvite string
+	SessionLock   sync.Mutex
 	Sessions      map[string]*webrtc_session.PeerSession
-	ClientCount   int
+	ClientCount   uint32
 
 	OnOpen  func(joinPacket JoinInvite, session *webrtc_session.PeerSession)
 	OnClose func(sessionId string)
@@ -111,11 +114,14 @@ func (s *WebRTCServer) handleCreateInvite(p CreateInviteResponse) {
 }
 
 func (s *WebRTCServer) onConnectionClosed(sessionId string) {
+	s.SessionLock.Lock()
+	defer s.SessionLock.Unlock()
 	for k := range s.Sessions {
 		if k == sessionId {
 			log.Printf("Removing %v from Sessions...\n", sessionId)
 			s.OnClose(sessionId)
 			delete(s.Sessions, k)
+			break
 		}
 	}
 }
@@ -135,14 +141,15 @@ func (s *WebRTCServer) handleJoinInvite(p JoinInvite) {
 		return
 	}
 
+	s.SessionLock.Lock()
 	s.Sessions[p.Session] = session
+	s.SessionLock.Unlock()
 
 	session.ReliableDC.OnOpen(func() {
 		s.OnOpen(p, session)
 	})
 
 	log.Println("Created session:", p.Session)
-	s.ClientCount++
 	joinPacket, _ := json.Marshal(AcceptJoinPacket{
 		Type:                    "acceptJoin",
 		Version:                 config.PolyVersion,
@@ -152,13 +159,17 @@ func (s *WebRTCServer) handleJoinInvite(p JoinInvite) {
 		CliendId:                s.ClientCount,
 		Answer:                  answer,
 	})
+	s.ClientCount++
 	log.Println("Answering...")
 
 	s.send([]byte(joinPacket))
 }
 
 func (s *WebRTCServer) handleICE(p IceCandidateResponse) {
+	s.SessionLock.Lock()
 	session, ok := s.Sessions[p.Session]
+	s.SessionLock.Unlock()
+
 	if !ok {
 		log.Println("unknown session:", p.Session)
 		return
@@ -189,5 +200,7 @@ func (s *WebRTCServer) OnIceCandidateServer(candidate []byte, session string) er
 }
 
 func (s *WebRTCServer) send(data []byte) error {
+	s.ConnLock.Lock()
+	defer s.ConnLock.Unlock()
 	return s.Conn.WriteMessage(1, data)
 }

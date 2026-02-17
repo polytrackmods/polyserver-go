@@ -84,11 +84,6 @@ type PlayerPacket interface {
 }
 
 type HostPacket interface {
-	Type() PlayerPacketType
+	Type() HostPacketType
 	Marshal() ([]byte, error)
-}
-
-// Sender handles sending packets through WebRTC
-type Sender interface {
-	Send(packet PlayerPacket) error
 }
