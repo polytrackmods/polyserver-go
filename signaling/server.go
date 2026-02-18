@@ -100,7 +100,10 @@ func (s *WebRTCServer) Start() {
 		_, message, err := s.Conn.ReadMessage()
 		if err != nil {
 			log.Println("read error:", err)
-			s.RegenerateInvite()
+			err := s.RegenerateInvite()
+			if err != nil {
+				log.Panicln("Unable to restart ws: " + err.Error())
+			}
 			return
 		}
 

@@ -78,7 +78,6 @@ async function loadPlayers() {
 
     const tbody = document.querySelector("#players tbody");
     tbody.innerHTML = "";
-
     data.players.forEach((p) => {
       const tr = document.createElement("tr");
 
@@ -86,13 +85,23 @@ async function loadPlayers() {
         <td>${p.name}</td>
         <td>${p.time}</td>
         <td>${p.ping} ms</td>
+        <td><button class="uk-button uk-button-danger" type="button" onclick="kickPlayer(${p.id})">Kick</button></td>
       `;
 
       tbody.appendChild(tr);
+      pIndex++;
     });
   } catch {
     // server not running
   }
+}
+
+async function kickPlayer(id) {
+  await fetch("/api/server/kick", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
 }
 
 // ---------- INIT ----------

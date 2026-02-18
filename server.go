@@ -120,12 +120,31 @@ func runServer() {
 			return c.Status(404).SendString("Track not found")
 		}
 
-		cur := *gameServer.GameSession
+		cur := gameServer.GameSession
 		cur.CurrentTrack = t
 
-		gameServer.UpdateGameSession(cur)
-
 		log.Println("Track switched to", req.Name)
+
+		return c.SendStatus(204)
+	})
+
+	app.Post("/kick", func(c *fiber.Ctx) error {
+
+		type Req struct {
+			ID uint32 `json:"id"`
+		}
+
+		var req Req
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid body")
+		}
+
+		for _, player := range gameServer.Players {
+			if player.ID == req.ID {
+				log.Println("Kicked player: ", player.Nickname)
+				// TODO: Kick logic
+			}
+		}
 
 		return c.SendStatus(204)
 	})
@@ -137,8 +156,7 @@ func runServer() {
 
 			timeStr := "-"
 			if p.NumberOfFrames != nil {
-				// 60 FPS → seconds
-				seconds := float64(*p.NumberOfFrames) / 60.0
+				seconds := float64(*p.NumberOfFrames) / 1000.0
 				timeStr = fmt.Sprintf("%.3fs", seconds)
 			}
 

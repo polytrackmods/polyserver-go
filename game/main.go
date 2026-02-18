@@ -136,7 +136,6 @@ func (server *GameServer) onPlayerJoin(p signaling.JoinInvite, session *webrtc_s
 //
 
 func (server *GameServer) onPlayerDisconnect(sessionId string) {
-
 	server.playersLock.Lock()
 	defer server.playersLock.Unlock()
 
@@ -187,18 +186,15 @@ func schedule(f func(), interval time.Duration) *time.Ticker {
 
 func (server *GameServer) sendPings() {
 	server.playersLock.Lock()
-	defer server.playersLock.Unlock()
-
 	for _, player := range server.Players {
 		player.SendPing()
 	}
+	server.playersLock.Unlock()
 
 	server.sendPingDatas()
 }
 
 func (server *GameServer) sendPingDatas() {
-	server.playersLock.Lock()
-	defer server.playersLock.Unlock()
 	pings := server.getPlayerPings()
 
 	for _, player := range server.Players {
