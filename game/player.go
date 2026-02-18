@@ -20,7 +20,7 @@ type Player struct {
 	IsModsVanillaCompatible bool
 	Nickname                string
 	CountryCode             *string
-	ResetCounter            int
+	ResetCounter            uint32
 	CarStyle                *gamepackets.CarStyle
 	NumberOfFrames          *uint32
 	Ping                    int
@@ -28,6 +28,7 @@ type Player struct {
 	PingPackages            []PingPackage
 	PPLock                  sync.Mutex
 	UnsentCarStates         []gamepackets.CarState
+	CSLock                  sync.Mutex
 }
 
 type PingPackage struct {
@@ -48,7 +49,7 @@ func NewPlayer(p *Player) *Player {
 func (player *Player) HandleMessage(data []byte) {
 	packet, err := player.Server.Factory.FromBytes(data)
 	if err != nil {
-		log.Println("Error from packet: " + err.Error())
+		// log.Println("Error from packet: " + err.Error())
 		return
 	}
 	switch packet.Type() {
@@ -66,12 +67,34 @@ func (player *Player) HandleMessage(data []byte) {
 		}
 	case gamepackets.HostCarUpdate:
 		updatePacket, _ := packet.(gamepackets.HostCarUpdatePacket)
-		log.Printf("Update packet received from %v: %v\n", updatePacket.SessionID, updatePacket)
+		// log.Printf("Update packet received from %v: %v\n", updatePacket.SessionID, updatePacket)
+		if updatePacket.SessionID == player.Server.GameSession.SessionID {
+			player.CSLock.Lock()
+			if updatePacket.ResetCounter > player.ResetCounter {
+				player.ResetCounter = updatePacket.ResetCounter
+				player.UnsentCarStates = make([]gamepackets.CarState, 0)
+			}
+			if updatePacket.ResetCounter == player.ResetCounter {
+				player.UnsentCarStates = append(player.UnsentCarStates, *updatePacket.CarState)
+			}
+			player.CSLock.Unlock()
+		}
+	case gamepackets.HostRecord:
+		recordPacket, _ := packet.(gamepackets.HostRecordPacket)
+		if player.Server.GameSession.SessionID == recordPacket.SessionID {
+			player.NumberOfFrames = &recordPacket.NumOfFrames
+			for _, p := range player.Server.Players {
+				if p.ID != player.ID {
+					p.SendPlayerUpdate(player)
+				}
+			}
+		}
 	}
 }
 
 func (player *Player) Send(packet gamepackets.PlayerPacket) error {
 	data, err := packet.Marshal()
+	// log.Printf("Sending %s to %s", packet.Type(), player.Nickname)
 	if err != nil {
 		return fmt.Errorf("failed to marshal %s packet: %w", packet.Type(), err)
 	}

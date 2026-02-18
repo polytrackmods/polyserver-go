@@ -3,6 +3,7 @@ package gamepackets
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 )
 
 type PlayerUpdatePacket struct {
@@ -62,8 +63,44 @@ func (p PlayerUpdatePacket) Marshal() ([]byte, error) {
 		buf = append(buf, 0)
 	} else {
 		buf = append(buf, 1)
-		buf = binary.LittleEndian.AppendUint32(buf, *p.NumFrames)
+		log.Printf("Sending frames: %v\n", *p.NumFrames)
+		tempBuf := make([]byte, 0)
+		tempBuf = binary.LittleEndian.AppendUint32(tempBuf, *p.NumFrames)
+		buf = append(buf, tempBuf[0])
+		buf = append(buf, tempBuf[1])
+		buf = append(buf, tempBuf[2])
 	}
 
 	return buf, nil
+}
+
+type RemovePlayerPacket struct {
+	ID       uint32
+	IsKicked bool
+}
+
+func (p RemovePlayerPacket) Type() PlayerPacketType {
+	return RemovePlayer
+}
+
+func (p RemovePlayerPacket) Marshal() ([]byte, error) {
+	buf := make([]byte, 0)
+
+	buf = append(buf, byte(RemovePlayer))
+	buf = binary.LittleEndian.AppendUint32(buf, p.ID)
+	if p.IsKicked {
+		buf = append(buf, byte(1))
+	} else {
+		buf = append(buf, byte(0))
+	}
+	return buf, nil
+}
+
+type HostRecordPacket struct {
+	SessionID   uint32
+	NumOfFrames uint32
+}
+
+func (p HostRecordPacket) Type() HostPacketType {
+	return HostRecord
 }

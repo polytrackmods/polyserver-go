@@ -26,13 +26,13 @@ func main() {
 	go server.Start()
 
 	gameServer := game.NewServer(server)
-	gameServer.GameSession = &game.GameSession{
+	gameServer.UpdateGameSession(game.GameSession{
 		SessionID:        0,
 		GameMode:         game.Competitive,
 		SwitchingSession: false,
 		CurrentTrack:     track,
-		MaxPlayers:       20,
-	}
+		MaxPlayers:       200,
+	})
 	fmt.Printf("CurrentInvite: %v\n", gameServer.SignalingServer.CurrentInvite)
 
 	if err := server.CreateInvite(); err != nil {

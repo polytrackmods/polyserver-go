@@ -57,6 +57,7 @@ func DecodeCarState(data []byte) (*CarState, int, error) {
 	if len(data) < offset+3 {
 		return nil, 0, fmt.Errorf(errMsg)
 	}
+
 	frames := uint32(data[offset]) | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16
 	offset += 3
 
@@ -73,18 +74,20 @@ func DecodeCarState(data []byte) (*CarState, int, error) {
 	}
 	flags := data[offset]
 	hasStarted := flags&1 != 0
-	hasCheckpointToRespawnAt := flags&4 != 0
+
+	hasCheckpointToRespawnAt := (flags & 4) != 0
+
 	wheelContactFlags := [4]bool{
-		flags&8 != 0,
-		flags&16 != 0,
-		flags&32 != 0,
-		flags&64 != 0,
+		(flags & 8) != 0,
+		(flags & 16) != 0,
+		(flags & 32) != 0,
+		(flags & 64) != 0,
 	}
 	offset++
 
 	// Read finish frames (optional, 3 bytes if present)
 	var finishFrames *uint32
-	if flags&2 != 0 { // o in JS (2 & flags)
+	if (flags & 2) != 0 { // o in JS (2 & flags)
 		if len(data) < offset+3 {
 			return nil, 0, fmt.Errorf(errMsg)
 		}

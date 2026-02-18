@@ -85,5 +85,4 @@ type PlayerPacket interface {
 
 type HostPacket interface {
 	Type() HostPacketType
-	Marshal() ([]byte, error)
 }
