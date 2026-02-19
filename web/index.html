@@ -11,9 +11,9 @@
 </head>
 
 <body>
-  <h1 class="uk-text-primary">PolyServer Supervisor</h1>
+  <h1 class="uk-light">PolyServer Supervisor</h1>
 
-  <h2 class="uk-text-primary">Server Status</h2>
+  <h2 class="uk-light">Server Status</h2>
   <p>Status: <strong id="status">?</strong></p>
   <p>PID: <strong id="pid">-</strong></p>
 
@@ -22,19 +22,19 @@
 
   <hr />
 
-  <h2 class="uk-text-primary">Invite</h2>
+  <h2 class="uk-light">Invite</h2>
   <button class="uk-button uk-button-primary" onclick="createInvite()">Create Invite</button>
   <pre id="invite">-</pre>
 
   <hr />
 
-  <h2 class="uk-text-primary">Track</h2>
+  <h2 class="uk-light">Track</h2>
   <select class="uk-select" id="trackSelect"></select>
   <button class="uk-button uk-button-primary" onclick="setTrack()">Change Track</button>
 
   <hr />
 
-  <h2 class="uk-text-primary">Players / Scoreboard</h2>
+  <h2 class="uk-light">Players / Scoreboard</h2>
 
   <table class="uk-table uk-table-divider uk-table-small" id="players">
     <thead>
@@ -47,6 +47,10 @@
     </thead>
     <tbody></tbody>
   </table>
+
+  <hr /> 
+  <h2 class="uk-light">Session Control</h2>
+  <button class="uk-button uk-button-primary" onclick="setTrack()">Change Track</button>
 
   <script src="app.js"></script>
 </body>

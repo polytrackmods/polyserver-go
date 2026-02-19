@@ -7,9 +7,11 @@ import (
 	"log"
 	"os"
 	"polyserver/game"
+	gamepackets "polyserver/game/packets"
 	"polyserver/signaling"
 	"polyserver/tracks"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -142,7 +144,17 @@ func runServer() {
 		for _, player := range gameServer.Players {
 			if player.ID == req.ID {
 				log.Println("Kicked player: ", player.Nickname)
-				// TODO: Kick logic
+				player.Send(gamepackets.KickPlayerPacket{})
+				for _, p := range gameServer.Players {
+					p.Send(gamepackets.RemovePlayerPacket{
+						ID:       player.ID,
+						IsKicked: true,
+					})
+				}
+				time.AfterFunc(1*time.Second, func() {
+					player.Session.Peer.Close()
+				})
+				break
 			}
 		}
 

@@ -96,6 +96,19 @@ func (p RemovePlayerPacket) Marshal() ([]byte, error) {
 	return buf, nil
 }
 
+type KickPlayerPacket struct{}
+
+func (p KickPlayerPacket) Type() PlayerPacketType {
+	return Kick
+}
+
+func (p KickPlayerPacket) Marshal() ([]byte, error) {
+	buf := make([]byte, 0)
+
+	buf = append(buf, byte(Kick))
+	return buf, nil
+}
+
 type HostRecordPacket struct {
 	SessionID   uint32
 	NumOfFrames uint32

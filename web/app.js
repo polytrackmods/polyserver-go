@@ -89,7 +89,6 @@ async function loadPlayers() {
       `;
 
       tbody.appendChild(tr);
-      pIndex++;
     });
   } catch {
     // server not running
@@ -97,7 +96,7 @@ async function loadPlayers() {
 }
 
 async function kickPlayer(id) {
-  await fetch("/api/server/kick", {
+  await fetch("/api/kick", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id }),
