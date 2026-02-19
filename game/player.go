@@ -152,11 +152,14 @@ func (player *Player) SendTrack() error {
 }
 
 func (player *Player) StartNewSession() {
-	player.Send(gamepackets.NewSessionPacket{
-		SessionID:  player.Server.GameSession.SessionID,
-		GameMode:   uint8(player.Server.GameSession.GameMode),
-		MaxPlayers: uint8(player.Server.GameSession.MaxPlayers),
+	time.AfterFunc(100*time.Millisecond, func() {
+		player.Send(gamepackets.NewSessionPacket{
+			SessionID:  player.Server.GameSession.SessionID,
+			GameMode:   uint8(player.Server.GameSession.GameMode),
+			MaxPlayers: uint8(player.Server.GameSession.MaxPlayers),
+		})
 	})
+
 }
 
 func (player *Player) SendPing() {

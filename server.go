@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -80,7 +81,15 @@ func runServer() {
 	app.Get("/status", func(c *fiber.Ctx) error {
 
 		currentName := ""
-
+		currentSession, err := json.Marshal(game.GameSession{
+			SessionID:        gameServer.GameSession.SessionID,
+			GameMode:         gameServer.GameSession.GameMode,
+			SwitchingSession: gameServer.GameSession.SwitchingSession,
+			MaxPlayers:       gameServer.GameSession.MaxPlayers,
+		})
+		if err != nil {
+			log.Println("Error marshalling session: " + err.Error())
+		}
 		for name, t := range tracksMap {
 			if t == gameServer.GameSession.CurrentTrack {
 				currentName = name
@@ -92,6 +101,7 @@ func runServer() {
 			"invite":  server.CurrentInvite,
 			"tracks":  trackNames,
 			"current": currentName,
+			"session": string(currentSession),
 		})
 	})
 
@@ -157,6 +167,62 @@ func runServer() {
 				break
 			}
 		}
+
+		return c.SendStatus(204)
+	})
+
+	app.Post("/session/end", func(c *fiber.Ctx) error {
+		if gameServer.GameSession.SwitchingSession {
+			log.Println("Can't end session, already ended.")
+			return c.SendStatus(400)
+		}
+		log.Println("Ending session...")
+		gameServer.GameSession.SwitchingSession = true
+		for _, player := range gameServer.Players {
+			player.Send(gamepackets.EndSessionPacket{})
+		}
+		return c.SendStatus(204)
+	})
+
+	app.Post("/session/start", func(c *fiber.Ctx) error {
+		if !gameServer.GameSession.SwitchingSession {
+			log.Println("Can't start session, already started.")
+			return c.SendStatus(400)
+		}
+		log.Println("Starting session...")
+		gameServer.GameSession.SwitchingSession = false
+		for _, player := range gameServer.Players {
+			player.StartNewSession()
+		}
+		return c.SendStatus(204)
+	})
+
+	app.Post("/session/set", func(c *fiber.Ctx) error {
+
+		type Req struct {
+			GameMode   game.GameMode `json:"gamemode"`
+			Track      string        `json:"track"`
+			MaxPlayers int           `json:"maxPlayers"`
+		}
+
+		var req Req
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid body")
+		}
+		t, ok := tracksMap[req.Track]
+
+		if !ok {
+			log.Println("Track " + req.Track + " not found.")
+			return c.SendStatus(400)
+		}
+
+		gameServer.UpdateGameSession(game.GameSession{
+			GameMode:         req.GameMode,
+			SwitchingSession: true,
+			CurrentTrack:     t,
+			MaxPlayers:       req.MaxPlayers,
+		})
+		log.Println("Got new session data...")
 
 		return c.SendStatus(204)
 	})

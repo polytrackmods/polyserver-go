@@ -65,21 +65,10 @@ func (s *GameServer) UpdateGameSession(gs GameSession) {
 	s.GameSession.CurrentTrack = gs.CurrentTrack
 	s.GameSession.MaxPlayers = gs.MaxPlayers
 	s.Batcher.sessionID = s.GameSession.SessionID
+	for _, player := range s.Players {
+		player.SendTrack()
+	}
 }
-
-//
-// SAFE PLAYER SNAPSHOT
-//
-
-// Not sure about this tbh
-// func (s *GameServer) snapshotPlayers() []*Player {
-// 	s.playersLock.Lock()
-// 	defer s.playersLock.Unlock()
-
-// 	out := make([]*Player, len(s.Players))
-// 	copy(out, s.Players)
-// 	return out
-// }
 
 //
 // PLAYER JOIN
@@ -116,6 +105,9 @@ func (server *GameServer) onPlayerJoin(p signaling.JoinInvite, session *webrtc_s
 	newPlayer.Send(gamepackets.EndSessionPacket{})
 	newPlayer.SendTrack()
 	newPlayer.StartNewSession()
+	if server.GameSession.SwitchingSession {
+		newPlayer.Send(gamepackets.EndSessionPacket{})
+	}
 
 	// Send existing players to the new player
 	server.playersLock.Lock()

@@ -31,24 +31,77 @@ async function loadServerData() {
   try {
     const r = await fetch("/api/tracks");
     const data = await r.json();
+    let sessionData = JSON.parse(data.session);
 
     inviteBox.textContent = data.invite || "-";
 
     const select = document.getElementById("trackSelect");
-    select.innerHTML = "";
+    const selectSession = document.getElementById("trackSelectSession");
 
-    data.tracks.forEach((name) => {
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
+    if(!sessionData.switchingSession || selectSession.children.length == 0) {
+      select.innerHTML = "";
+      selectSession.innerHTML = "";
+      data.tracks.forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
 
-      if (name === data.current) opt.selected = true;
+        if (name === data.current) opt.selected = true;
 
-      select.appendChild(opt);
-    });
-  } catch {
+        const opt2 = document.createElement("option");
+        opt2.value = name;
+        opt2.textContent = name;
+
+        select.appendChild(opt);
+        selectSession.appendChild(opt2);
+      });
+    }
+    let sessionInfoDiv = document.getElementById("sessionInfo")
+    sessionInfoDiv.innerHTML = `
+      <p>Session ID: <strong>${sessionData["sessionId"]}</strong></p>
+      <p>Session Gamemode: <strong>${sessionData["gamemode"] == 1 ? "Competitive" : "Casual"}</strong></p>
+      <p>Max players: <strong>${sessionData["maxPlayers"]}</strong></p>
+      <p>Switching sessions? <strong>${sessionData["switchingSession"] ? "Yes" : "No"}</strong></p>
+      `;
+      document.getElementById("startSessionBtn").disabled = !sessionData["switchingSession"]
+      document.getElementById("sendSessionBtn").disabled = !sessionData["switchingSession"]
+      document.getElementById("endSessionBtn").disabled = sessionData["switchingSession"]
+
+  } catch(e) {
+    console.log("Error " + e)
     inviteBox.textContent = "(server not running)";
   }
+}
+
+async function endSession() {
+  const r = await fetch("/api/session/end", { method: "POST" });
+  await loadServerData()
+}
+async function startSession() {
+  const r = await fetch("/api/session/start", { method: "POST" });
+  await loadServerData()
+}
+
+async function sendSession() {
+  let index = 0;
+  for(let child of document.getElementById("gamemodePicker").children) {
+    if(child.children[0].checked) break;
+    index++;
+  }
+  console.log(JSON.stringify({ 
+      gamemode: index, 
+      track: document.getElementById("trackSelectSession").value,
+      maxPlayers: document.getElementById("maxPlayers").value,
+    }))
+  await fetch("/api/session/set", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ 
+      gamemode: index, 
+      track: document.getElementById("trackSelectSession").value,
+      maxPlayers: parseInt(document.getElementById("maxPlayers").value),
+    }),
+  });
 }
 
 async function createInvite() {

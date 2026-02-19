@@ -21,22 +21,13 @@
   <button class="uk-button uk-button-danger" onclick="stopServer()">Stop Server</button>
 
   <hr />
-
   <h2 class="uk-light">Invite</h2>
+  <pre id="invite"  @ class="uk-width-1-6"  >-</pre>
   <button class="uk-button uk-button-primary" onclick="createInvite()">Create Invite</button>
-  <pre id="invite">-</pre>
-
-  <hr />
-
-  <h2 class="uk-light">Track</h2>
-  <select class="uk-select" id="trackSelect"></select>
-  <button class="uk-button uk-button-primary" onclick="setTrack()">Change Track</button>
-
-  <hr />
-
+  
   <h2 class="uk-light">Players / Scoreboard</h2>
 
-  <table class="uk-table uk-table-divider uk-table-small" id="players">
+  <table class="uk-table uk-table-divider uk-table-small uk-width-1-2" id="players">
     <thead>
       <tr>
         <th>Name</th>
@@ -49,8 +40,38 @@
   </table>
 
   <hr /> 
+  <h2 class="uk-light">Current Session Settings</h2>
+  <div id="sessionInfo"></div>
+
+
   <h2 class="uk-light">Session Control</h2>
+  <h3 class="uk-light">Map: </h3>
+  <select class="uk-select uk-width-1-4" id="trackSelectSession"></select>
+
+  <h3 class="uk-light">Gamemode: </h3>
+  <div class="uk-margin uk-grid-small uk-child-width-auto uk-grid" id="gamemodePicker">
+    <label><input class="uk-radio" type="radio" name="radio2"> Casual</label>
+    <label><input class="uk-radio" type="radio" name="radio2" checked> Competitive</label>
+  </div>
+  <h3 class="uk-light">Max Players: </h3>
+
+  <input class="uk-input uk-width-1-4" id="maxPlayers"><br><br>
+
+  <h3 class="uk-light">Auto Switch</h3>
+  <input class="uk-input uk-light uk-width-1-6" placeholder="timeout (s)">
+  <button class="uk-button uk-button-primary" onclick="console.log(`switch`)" id="switchSessionBtn">Switch Session</button><br>
+  
+  <h3 class="uk-light">Manual Controls</h3>
+  <button class="uk-button uk-button-primary" onclick="startSession()" id="startSessionBtn">Start Session</button>
+  <button class="uk-button uk-button-primary" onclick="sendSession()" id="sendSessionBtn">Send to Server</button>
+  <button class="uk-button uk-button-danger" onclick="endSession()" id="endSessionBtn">End Session</button>
+  <hr />
+
+  <h1 class="uk-light">Danger Zone</h1>
+  <h2 class="uk-light">Track - maybe dont use this</h2>
+  <select class="uk-select uk-width-1-4" id="trackSelect"></select>
   <button class="uk-button uk-button-primary" onclick="setTrack()">Change Track</button>
+
 
   <script src="app.js"></script>
 </body>
