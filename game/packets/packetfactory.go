@@ -41,7 +41,12 @@ func (f *PacketFactory) FromBytes(data []byte) (HostPacket, error) {
 			SessionID:   binary.LittleEndian.Uint32(data[1:5]),
 			NumOfFrames: binary.LittleEndian.Uint32(frameCount),
 		}, nil
+	case HostCarReset:
+		return HostCarResetPacket{
+			SessionID:    binary.LittleEndian.Uint32(data[1:5]),
+			ResetCounter: binary.LittleEndian.Uint32(data[5:9]),
+		}, nil
 	default:
-		return nil, fmt.Errorf("unknown packet type: %d", packetType)
+		return nil, fmt.Errorf("unknown packet type: %s", packetType.String())
 	}
 }

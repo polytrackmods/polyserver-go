@@ -49,7 +49,7 @@ func NewPlayer(p *Player) *Player {
 func (player *Player) HandleMessage(data []byte) {
 	packet, err := player.Server.Factory.FromBytes(data)
 	if err != nil {
-		// log.Println("Error from packet: " + err.Error())
+		log.Println("Error from packet: " + err.Error())
 		return
 	}
 	switch packet.Type() {
@@ -89,6 +89,25 @@ func (player *Player) HandleMessage(data []byte) {
 				}
 			}
 		}
+	case gamepackets.HostCarReset:
+		resetPacket, _ := packet.(gamepackets.HostCarResetPacket)
+		if resetPacket.SessionID == player.Server.GameSession.SessionID && resetPacket.ResetCounter > player.ResetCounter {
+			player.ResetCounter = resetPacket.ResetCounter
+
+			player.CSLock.Lock()
+			player.UnsentCarStates = make([]gamepackets.CarState, 0)
+			player.CSLock.Unlock()
+
+			for _, p := range player.Server.Players {
+				if p.ID != player.ID {
+					p.Send(gamepackets.PlayerCarResetPacket{
+						ID:           player.ID,
+						ResetCounter: resetPacket.ResetCounter,
+					})
+				}
+			}
+		}
+		log.Printf("Reset packet: %v\n", resetPacket)
 	}
 }
 

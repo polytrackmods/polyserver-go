@@ -122,29 +122,19 @@ func (p PlayerCarResetPacket) Marshal() ([]byte, error) {
 	buf := make([]byte, 0)
 
 	buf = append(buf, byte(PlayerCarReset))
-	buf = append(buf, byte(p.ID))
-	buf = append(buf, byte(p.ResetCounter))
+	buf = binary.LittleEndian.AppendUint32(buf, p.ID)
+	buf = binary.LittleEndian.AppendUint32(buf, p.ResetCounter)
 
 	return buf, nil
 }
 
 type HostCarResetPacket struct {
-	ID           uint32
+	SessionID    uint32
 	ResetCounter uint32
 }
 
 func (p HostCarResetPacket) Type() HostPacketType {
 	return HostCarReset
-}
-
-func (p HostCarResetPacket) Marshal() ([]byte, error) {
-	buf := make([]byte, 0)
-
-	buf = append(buf, byte(PlayerCarReset))
-	buf = append(buf, byte(p.ID))
-	buf = append(buf, byte(p.ResetCounter))
-
-	return buf, nil
 }
 
 type HostRecordPacket struct {
