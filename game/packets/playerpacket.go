@@ -109,6 +109,44 @@ func (p KickPlayerPacket) Marshal() ([]byte, error) {
 	return buf, nil
 }
 
+type PlayerCarResetPacket struct {
+	ID           uint32
+	ResetCounter uint32
+}
+
+func (p PlayerCarResetPacket) Type() PlayerPacketType {
+	return PlayerCarReset
+}
+
+func (p PlayerCarResetPacket) Marshal() ([]byte, error) {
+	buf := make([]byte, 0)
+
+	buf = append(buf, byte(PlayerCarReset))
+	buf = append(buf, byte(p.ID))
+	buf = append(buf, byte(p.ResetCounter))
+
+	return buf, nil
+}
+
+type HostCarResetPacket struct {
+	ID           uint32
+	ResetCounter uint32
+}
+
+func (p HostCarResetPacket) Type() HostPacketType {
+	return HostCarReset
+}
+
+func (p HostCarResetPacket) Marshal() ([]byte, error) {
+	buf := make([]byte, 0)
+
+	buf = append(buf, byte(PlayerCarReset))
+	buf = append(buf, byte(p.ID))
+	buf = append(buf, byte(p.ResetCounter))
+
+	return buf, nil
+}
+
 type HostRecordPacket struct {
 	SessionID   uint32
 	NumOfFrames uint32
